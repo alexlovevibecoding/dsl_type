@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FsYacc Include="TypeParser.fsy">
+      <OtherFlags>--module DslType.TypeParser</OtherFlags>
+    </FsYacc>
+    <FsLex Include="TypeLexer.fsl">
+      <OtherFlags>--unicode</OtherFlags>
+    </FsLex>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="TypeAst.fs" />
+    <Compile Include="TypeParser.fs">
+      <DependentUpon>TypeParser.fsy</DependentUpon>
+    </Compile>
+    <Compile Include="TypeLexer.fs">
+      <DependentUpon>TypeLexer.fsl</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsLexYacc" Version="11.3.0" />
+    <PackageReference Include="FsLexYacc.Runtime" Version="11.3.0" />
+  </ItemGroup>
+
+</Project>

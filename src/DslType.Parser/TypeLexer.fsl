@@ -1,0 +1,52 @@
+{
+module DslType.TypeLexer
+
+open FSharp.Text.Lexing
+open DslType.TypeParser
+}
+
+let digit = ['0'-'9']
+let letter = ['A'-'Z' 'a'-'z' '_']
+let ident = letter (letter | digit | '_')*
+
+rule token =
+    parse
+    | [' ' '\t' '\r' '\n'] { token lexbuf }
+    | "//" [^'\n']* { token lexbuf }
+    | "/*" { blockComment 1 lexbuf }
+    | "type" { TYPE }
+    | "rec" { REC }
+    | "{" { LBRACE }
+    | "}" { RBRACE }
+    | "(" { LPAREN }
+    | ")" { RPAREN }
+    | "<" { LANGLE }
+    | ">" { RANGLE }
+    | "." { DOT }
+    | "|" { PIPE }
+    | "=" { EQUALS }
+    | ":" { COLON }
+    | ";" { SEMICOLON }
+    | "," { COMMA }
+    | ident {
+        let id = LexBuffer<_>.LexemeString lexbuf
+        match id with
+        | "Unit" -> UNIT
+        | "Bool" -> BOOL
+        | "Int" -> INT
+        | "Float" -> FLOAT
+        | "String" -> STRING
+        | _ -> IDENT id
+      }
+    | eof { EOF }
+    | _ { let text = LexBuffer<_>.LexemeString lexbuf in failwithf "Unexpected character '%s'" text }
+
+and blockComment depth =
+    parse
+    | "/*" { blockComment (depth + 1) lexbuf }
+    | "*/" {
+        if depth = 1 then token lexbuf
+        else blockComment (depth - 1) lexbuf
+      }
+    | eof { failwith "Unterminated block comment" }
+    | _ { blockComment depth lexbuf }

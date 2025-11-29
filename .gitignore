@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+
+# VS/JetBrains
+.vs/
+.idea/
+
+# VS Code
+.vscode/
+
+# User specific
+*.user
+*.swp
+*.suo
+*.userprefs
+
+# FsLex/FsYacc log artifacts
+*.lex.fs
+*.yacc.fs
+
+# macOS
+.DS_Store
+
+# Tooling
+msbuild.log
