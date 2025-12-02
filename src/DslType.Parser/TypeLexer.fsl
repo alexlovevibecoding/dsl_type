@@ -15,6 +15,7 @@ rule token =
     | "//" [^'\n']* { token lexbuf }
     | "/*" { blockComment 1 lexbuf }
     | "type" { TYPE }
+    | "fn" { FN }
     | "rec" { REC }
     | "{" { LBRACE }
     | "}" { RBRACE }
@@ -23,6 +24,7 @@ rule token =
     | "<" { LANGLE }
     | ">" { RANGLE }
     | "." { DOT }
+    | "|>" { PIPEGT }
     | "|" { PIPE }
     | "=" { EQUALS }
     | ":" { COLON }
@@ -35,6 +37,19 @@ rule token =
         | "Bool" -> BOOL
         | "Int" -> INT
         | "Float" -> FLOAT
+        | "Date" -> DATE
+        | "DateTime" -> DATETIME
+        | "Guid" -> GUID
+        | "Byte" -> BYTE
+        | "SByte" -> SBYTE
+        | "Int16" -> INT16
+        | "Int32" -> INT32
+        | "Int64" -> INT64
+        | "UInt16" -> UINT16
+        | "UInt32" -> UINT32
+        | "UInt64" -> UINT64
+        | "Decimal" -> DECIMAL
+        | "Char" -> CHAR
         | "String" -> STRING
         | _ -> IDENT id
       }

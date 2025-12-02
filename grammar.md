@@ -1,8 +1,21 @@
 Program
-    ::= { TypeDecl } ;
+    ::= { Declaration } ;
+
+Declaration
+    ::= TypeDecl
+     | FnDecl ;
 
 TypeDecl
     ::= "type" TypeName [ TypeParams ] "=" TypeExpr ";" ;
+
+FnDecl
+    ::= "fn" Ident "(" [ ParamList ] ")" ":" TypeExpr ";" ;
+
+ParamList
+    ::= ParamDecl { "," ParamDecl } ;
+
+ParamDecl
+    ::= Ident ":" TypeExpr ;
 
 TypeName
     ::= Ident ;
@@ -12,7 +25,8 @@ TypeParams
 
 TypeExpr
     ::= RecType
-     | SumType ;
+     | SumType
+     | PipeType ;
 
 RecType
     ::= "rec" Ident "." TypeExpr
@@ -57,6 +71,13 @@ TypeList
 TypeExprApp
     ::= TypeExprAtom [ TypeArgs ] ;
 
+PipeType
+    ::= PipeChain ;
+
+PipeChain
+    ::= TypeExprApp
+     | PipeChain "|>" TypeExprApp ;
+
 TypeArgs
     ::= "<" TypeExpr { "," TypeExpr } ">" ;
 
@@ -79,6 +100,19 @@ PrimitiveType
      | "Bool"
      | "Int"
      | "Float"
+     | "Date"
+     | "DateTime"
+     | "Guid"
+     | "Byte"
+     | "SByte"
+     | "Int16"
+     | "Int32"
+     | "Int64"
+     | "UInt16"
+     | "UInt32"
+     | "UInt64"
+     | "Decimal"
+     | "Char"
      | "String" ;
 
 Ident

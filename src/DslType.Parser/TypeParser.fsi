@@ -6,9 +6,23 @@ type token =
   | BOOL
   | INT
   | FLOAT
+  | DATE
+  | DATETIME
+  | GUID
+  | BYTE
+  | SBYTE
+  | INT16
+  | INT32
+  | INT64
+  | UINT16
+  | UINT32
+  | UINT64
+  | DECIMAL
+  | CHAR
   | STRING
   | IDENT of (string)
   | TYPE
+  | FN
   | REC
   | LBRACE
   | RBRACE
@@ -18,6 +32,7 @@ type token =
   | RANGLE
   | DOT
   | PIPE
+  | PIPEGT
   | EQUALS
   | COLON
   | SEMICOLON
@@ -28,9 +43,23 @@ type tokenId =
     | TOKEN_BOOL
     | TOKEN_INT
     | TOKEN_FLOAT
+    | TOKEN_DATE
+    | TOKEN_DATETIME
+    | TOKEN_GUID
+    | TOKEN_BYTE
+    | TOKEN_SBYTE
+    | TOKEN_INT16
+    | TOKEN_INT32
+    | TOKEN_INT64
+    | TOKEN_UINT16
+    | TOKEN_UINT32
+    | TOKEN_UINT64
+    | TOKEN_DECIMAL
+    | TOKEN_CHAR
     | TOKEN_STRING
     | TOKEN_IDENT
     | TOKEN_TYPE
+    | TOKEN_FN
     | TOKEN_REC
     | TOKEN_LBRACE
     | TOKEN_RBRACE
@@ -40,6 +69,7 @@ type tokenId =
     | TOKEN_RANGLE
     | TOKEN_DOT
     | TOKEN_PIPE
+    | TOKEN_PIPEGT
     | TOKEN_EQUALS
     | TOKEN_COLON
     | TOKEN_SEMICOLON
@@ -50,11 +80,17 @@ type nonTerminalId =
     | NONTERM__startmain
     | NONTERM_main
     | NONTERM_decls
+    | NONTERM_decl
     | NONTERM_type_decl
+    | NONTERM_fn_decl
+    | NONTERM_param_list_opt
+    | NONTERM_param_list
+    | NONTERM_param_decl
     | NONTERM_type_params_opt
     | NONTERM_ident_list
     | NONTERM_type_expr
     | NONTERM_non_rec_type
+    | NONTERM_pipe_expr
     | NONTERM_sum_type
     | NONTERM_sum_tail
     | NONTERM_variant

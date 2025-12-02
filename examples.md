@@ -21,7 +21,9 @@ type List<T> =
         | Nil
         | Cons { head: T; tail: Self };
 
-type List<T> =
-    rec Self.
-        | Nil
-        | Cons { head: T; tail: Self };
+// Pipeline application (piped subject becomes the last argument)
+type UserId = Guid |> Option |> Result<String>;
+type Measurements = Float |> List;
+
+// Function declaration with parameters and explicit piped return type
+fn fetchUser(id: Guid): Result<User, Error> |> Option;

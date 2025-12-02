@@ -8,10 +8,18 @@ let private parseProgram source =
     let lexbuf = LexBuffer<char>.FromString source
     TypeParser.main TypeLexer.token lexbuf
 
-let private parseSingleDecl source =
+let private parseSingleTypeDecl source =
     let doc = parseProgram source
     match doc.Declarations with
-    | [decl] -> decl
+    | [Declaration.Type decl] -> decl
+    | [other] -> failwithf "Expected type declaration but got %A" other
+    | other -> failwithf "Expected exactly one declaration but got %d" (List.length other)
+
+let private parseSingleFnDecl source =
+    let doc = parseProgram source
+    match doc.Declarations with
+    | [Declaration.Function decl] -> decl
+    | [other] -> failwithf "Expected function declaration but got %A" other
     | other -> failwithf "Expected exactly one declaration but got %d" (List.length other)
 
 let private expectPrimitive expected expr =
@@ -19,9 +27,152 @@ let private expectPrimitive expected expr =
     | TypeExpr.Primitive prim -> Assert.Equal(expected, prim)
     | _ -> failwith "Expected primitive type"
 
+let private expectIdentifier expected expr =
+    match expr with
+    | TypeExpr.Identifier name -> Assert.Equal(expected, name)
+    | _ -> failwith "Expected identifier"
+
+let private expectTypeApp (expectedSubject: string) expectedArgs expr =
+    match expr with
+    | TypeExpr.TypeApp (subject, args) ->
+        expectIdentifier expectedSubject subject
+        Assert.Equal<TypeExpr list>(expectedArgs, args)
+    | _ -> failwith "Expected type application"
+
+let private expectPipeline expectedSubject expectedSteps expr =
+    match expr with
+    | TypeExpr.Pipeline (subject, steps) ->
+        Assert.Equal<TypeExpr>(expectedSubject, subject)
+        Assert.Equal<TypeExpr list>(expectedSteps, steps)
+    | _ -> failwith "Expected pipeline"
+
+let private primitiveFromName name =
+    match name with
+    | "Unit" -> PrimitiveType.Unit
+    | "Bool" -> PrimitiveType.Bool
+    | "Int" -> PrimitiveType.Int
+    | "Float" -> PrimitiveType.Float
+    | "String" -> PrimitiveType.String
+    | "Date" -> PrimitiveType.Date
+    | "DateTime" -> PrimitiveType.DateTime
+    | "Guid" -> PrimitiveType.Guid
+    | "Byte" -> PrimitiveType.Byte
+    | "SByte" -> PrimitiveType.SByte
+    | "Int16" -> PrimitiveType.Int16
+    | "Int32" -> PrimitiveType.Int32
+    | "Int64" -> PrimitiveType.Int64
+    | "UInt16" -> PrimitiveType.UInt16
+    | "UInt32" -> PrimitiveType.UInt32
+    | "UInt64" -> PrimitiveType.UInt64
+    | "Decimal" -> PrimitiveType.Decimal
+    | "Char" -> PrimitiveType.Char
+    | other -> failwith $"Unexpected primitive {other}"
+
+[<Theory>]
+[<InlineData("Date", "Date")>]
+[<InlineData("DateTime", "DateTime")>]
+[<InlineData("Guid", "Guid")>]
+[<InlineData("Byte", "Byte")>]
+[<InlineData("SByte", "SByte")>]
+[<InlineData("Int16", "Int16")>]
+[<InlineData("Int32", "Int32")>]
+[<InlineData("Int64", "Int64")>]
+[<InlineData("UInt16", "UInt16")>]
+[<InlineData("UInt32", "UInt32")>]
+[<InlineData("UInt64", "UInt64")>]
+[<InlineData("Decimal", "Decimal")>]
+[<InlineData("Char", "Char")>]
+let ``common primitives parse`` (name: string, expectedName: string) =
+    let decl = parseSingleTypeDecl $"type Shared = {name};"
+    Assert.Equal("Shared", decl.Name)
+    Assert.Empty decl.TypeParams
+
+    expectPrimitive (primitiveFromName expectedName) decl.Body
+
+[<Fact>]
+let ``all primitives round-trip`` () =
+    let primitives =
+        [ "Unit"
+          "Bool"
+          "Int"
+          "Float"
+          "String"
+          "Date"
+          "DateTime"
+          "Guid"
+          "Byte"
+          "SByte"
+          "Int16"
+          "Int32"
+          "Int64"
+          "UInt16"
+          "UInt32"
+          "UInt64"
+          "Decimal"
+          "Char" ]
+
+    for name in primitives do
+        let decl = parseSingleTypeDecl $"type T = {name};"
+        expectPrimitive (primitiveFromName name) decl.Body
+
+[<Fact>]
+let ``pipeline applies type constructor`` () =
+    let decl = parseSingleTypeDecl "type Wrapped = Int |> Option;"
+    let intPrim = TypeExpr.Primitive PrimitiveType.Int
+    expectPipeline intPrim [TypeExpr.Identifier "Option"] decl.Body
+
+[<Fact>]
+let ``pipeline supports chaining`` () =
+    let decl = parseSingleTypeDecl "type Wrapped = Int |> Option |> List;"
+    let intPrim = TypeExpr.Primitive PrimitiveType.Int
+    expectPipeline intPrim [TypeExpr.Identifier "Option"; TypeExpr.Identifier "List"] decl.Body
+
+[<Fact>]
+let ``pipeline supports identifier subject`` () =
+    let decl = parseSingleTypeDecl "type Wrapped = Custom |> Option;"
+    let subject = TypeExpr.Identifier "Custom"
+    expectPipeline subject [TypeExpr.Identifier "Option"] decl.Body
+
+[<Fact>]
+let ``pipeline supports partial application`` () =
+    let decl = parseSingleTypeDecl "type Wrapped = Int |> Result<String>;"
+    let intPrim = TypeExpr.Primitive PrimitiveType.Int
+    let stringPrim = TypeExpr.Primitive PrimitiveType.String
+    let resultPartial = TypeExpr.TypeApp(TypeExpr.Identifier "Result", [stringPrim])
+    expectPipeline intPrim [resultPartial] decl.Body
+
+[<Fact>]
+let ``function declaration parses parameters and return type`` () =
+    let fn = parseSingleFnDecl "fn add(x: Int, y: Int): Int;"
+    Assert.Equal("add", fn.Name)
+
+    match fn.Parameters with
+    | [x; y] ->
+        Assert.Equal("x", x.Name)
+        expectPrimitive PrimitiveType.Int x.Type
+        Assert.Equal("y", y.Name)
+        expectPrimitive PrimitiveType.Int y.Type
+    | _ -> failwith "Expected two parameters"
+
+    expectPrimitive PrimitiveType.Int fn.ReturnType
+
+[<Fact>]
+let ``function declaration supports piped return type`` () =
+    let fn = parseSingleFnDecl "fn fetch(id: Guid): User |> Option;"
+    Assert.Equal("fetch", fn.Name)
+
+    match fn.Parameters with
+    | [id] ->
+        Assert.Equal("id", id.Name)
+        expectPrimitive PrimitiveType.Guid id.Type
+    | _ -> failwith "Expected one parameter"
+
+    let subject = TypeExpr.Identifier "User"
+    expectPipeline subject [TypeExpr.Identifier "Option"] fn.ReturnType
+
 [<Fact>]
 let ``record declarations parse`` () =
-    let decl = parseSingleDecl "type Point = { x: Int; y: Int };"
+    let decl = parseSingleTypeDecl "type Point = { x: Int; y: Int };"
     Assert.Equal("Point", decl.Name)
     Assert.Empty decl.TypeParams
 
@@ -39,7 +190,7 @@ let ``record declarations parse`` () =
 [<Fact>]
 let ``sum type with tuple and record payload`` () =
     let decl =
-        parseSingleDecl
+        parseSingleTypeDecl
             """
             type Shape =
                 | Circle(Float)
@@ -74,7 +225,7 @@ let ``sum type with tuple and record payload`` () =
 [<Fact>]
 let ``recursive list with type application`` () =
     let decl =
-        parseSingleDecl
+        parseSingleTypeDecl
             """
             type List<T> =
                 rec Self.
@@ -101,7 +252,7 @@ let ``recursive list with type application`` () =
 [<Fact>]
 let ``mutually recursive block tracks names and bodies`` () =
     let decl =
-        parseSingleDecl
+        parseSingleTypeDecl
             """
             type Graph =
                 rec (Node, Edge).

@@ -5,9 +5,9 @@ open DslType
 %start main
 %type <Program> main
 
-%token TYPE REC LBRACE RBRACE LPAREN RPAREN LANGLE RANGLE DOT PIPE EQUALS COLON SEMICOLON COMMA
+%token TYPE FN REC LBRACE RBRACE LPAREN RPAREN LANGLE RANGLE DOT PIPE PIPEGT EQUALS COLON SEMICOLON COMMA
 %token <string> IDENT
-%token UNIT BOOL INT FLOAT STRING
+%token UNIT BOOL INT FLOAT DATE DATETIME GUID BYTE SBYTE INT16 INT32 INT64 UINT16 UINT32 UINT64 DECIMAL CHAR STRING
 %token EOF
 %%
 main:
@@ -15,11 +15,30 @@ main:
 
 decls:
     /* empty */                      { [] }
-  | type_decl decls                  { $1 :: $2 }
+  | decl decls                       { $1 :: $2 }
+
+decl:
+    type_decl                        { Declaration.Type $1 }
+  | fn_decl                          { Declaration.Function $1 }
 
 type_decl:
     TYPE IDENT type_params_opt EQUALS type_expr SEMICOLON
                                       { { Name = $2; TypeParams = $3; Body = $5 } }
+
+fn_decl:
+    FN IDENT LPAREN param_list_opt RPAREN COLON type_expr SEMICOLON
+                                      { { Name = $2; Parameters = $4; ReturnType = $7 } }
+
+param_list_opt:
+    param_list                        { $1 }
+  | /* empty */                      { [] }
+
+param_list:
+    param_decl COMMA param_list       { $1 :: $3 }
+  | param_decl                       { [$1] }
+
+param_decl:
+    IDENT COLON type_expr             { { Name = $1; Type = $3 } }
 
 type_params_opt:
     LANGLE ident_list RANGLE          { $2 }
@@ -37,6 +56,17 @@ type_expr:
 
 non_rec_type:
     sum_type                          { $1 }
+  | pipe_expr                        { $1 }
+
+pipe_expr:
+    pipe_expr PIPEGT type_expr_app    {
+                                        let combine left right =
+                                            match left with
+                                            | TypeExpr.Pipeline (subject, steps) -> TypeExpr.Pipeline (subject, steps @ [right])
+                                            | other -> TypeExpr.Pipeline (other, [right])
+
+                                        combine $1 $3
+                                      }
   | type_expr_app                    { $1 }
 
 sum_type:
@@ -108,4 +138,17 @@ primitive_type:
   | BOOL                              { PrimitiveType.Bool }
   | INT                               { PrimitiveType.Int }
   | FLOAT                             { PrimitiveType.Float }
+  | DATE                              { PrimitiveType.Date }
+  | DATETIME                          { PrimitiveType.DateTime }
+  | GUID                              { PrimitiveType.Guid }
+  | BYTE                              { PrimitiveType.Byte }
+  | SBYTE                             { PrimitiveType.SByte }
+  | INT16                             { PrimitiveType.Int16 }
+  | INT32                             { PrimitiveType.Int32 }
+  | INT64                             { PrimitiveType.Int64 }
+  | UINT16                            { PrimitiveType.UInt16 }
+  | UINT32                            { PrimitiveType.UInt32 }
+  | UINT64                            { PrimitiveType.UInt64 }
+  | DECIMAL                           { PrimitiveType.Decimal }
+  | CHAR                              { PrimitiveType.Char }
   | STRING                            { PrimitiveType.String }

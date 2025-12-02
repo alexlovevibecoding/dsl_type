@@ -6,6 +6,19 @@ type PrimitiveType =
     | Bool
     | Int
     | Float
+    | Date
+    | DateTime
+    | Guid
+    | Byte
+    | SByte
+    | Int16
+    | Int32
+    | Int64
+    | UInt16
+    | UInt32
+    | UInt64
+    | Decimal
+    | Char
     | String
 
 type VariantPayload =
@@ -21,12 +34,17 @@ and TypeExpr =
     | Record of Field list
     | Sum of Variant list
     | Rec of RecBinding
+    | Pipeline of TypeExpr * TypeExpr list
 
 and RecBinding =
     | Single of string * TypeExpr
     | Multi of string list * RecBody list
 
 and Field =
+    { Name: string
+      Type: TypeExpr }
+
+and Parameter =
     { Name: string
       Type: TypeExpr }
 
@@ -43,8 +61,17 @@ and TypeDecl =
       TypeParams: string list
       Body: TypeExpr }
 
+and FunctionDecl =
+    { Name: string
+      Parameters: Parameter list
+      ReturnType: TypeExpr }
+
+and Declaration =
+    | Type of TypeDecl
+    | Function of FunctionDecl
+
 and Program =
-    { Declarations: TypeDecl list }
+    { Declarations: Declaration list }
 
 module Pretty =
     let private primitiveToString = function
@@ -52,6 +79,19 @@ module Pretty =
         | PrimitiveType.Bool -> "Bool"
         | PrimitiveType.Int -> "Int"
         | PrimitiveType.Float -> "Float"
+        | PrimitiveType.Date -> "Date"
+        | PrimitiveType.DateTime -> "DateTime"
+        | PrimitiveType.Guid -> "Guid"
+        | PrimitiveType.Byte -> "Byte"
+        | PrimitiveType.SByte -> "SByte"
+        | PrimitiveType.Int16 -> "Int16"
+        | PrimitiveType.Int32 -> "Int32"
+        | PrimitiveType.Int64 -> "Int64"
+        | PrimitiveType.UInt16 -> "UInt16"
+        | PrimitiveType.UInt32 -> "UInt32"
+        | PrimitiveType.UInt64 -> "UInt64"
+        | PrimitiveType.Decimal -> "Decimal"
+        | PrimitiveType.Char -> "Char"
         | PrimitiveType.String -> "String"
 
     let rec typeExpr expr =
@@ -77,9 +117,16 @@ module Pretty =
             |> String.concat " \n| "
             |> sprintf "| %s"
         | TypeExpr.Rec binding -> recBinding binding
+        | TypeExpr.Pipeline (subject, steps) ->
+            let renderedSubject = typeExpr subject
+            let renderedSteps = steps |> List.map typeExpr
+            (renderedSubject :: renderedSteps) |> String.concat " |> "
 
     and field (fieldDecl: Field) =
         $"{fieldDecl.Name}: {typeExpr fieldDecl.Type}"
+
+    and parameter (paramDecl: Parameter) =
+        $"{paramDecl.Name}: {typeExpr paramDecl.Type}"
 
     and variant (variantDecl: Variant) =
         match variantDecl.Payload with
@@ -112,13 +159,26 @@ module Pretty =
 
             $"{header} {renderedBodies}"
 
+    let private typeDecl decl =
+        let renderedParams =
+            match decl.TypeParams with
+            | [] -> ""
+            | items -> items |> String.concat ", " |> sprintf "<%s>"
+
+        $"type {decl.Name}{renderedParams} = {typeExpr decl.Body};"
+
+    let private functionDecl decl =
+        let renderedParams =
+            decl.Parameters
+            |> List.map parameter
+            |> String.concat "; "
+            |> sprintf "(%s)"
+
+        $"fn {decl.Name}{renderedParams}: {typeExpr decl.ReturnType};"
+
     let program (doc: Program) =
         doc.Declarations
-        |> List.map (fun decl ->
-            let renderedParams =
-                match decl.TypeParams with
-                | [] -> ""
-                | items -> items |> String.concat ", " |> sprintf "<%s>"
-
-            $"type {decl.Name}{renderedParams} = {typeExpr decl.Body};")
+        |> List.map (function
+            | Declaration.Type decl -> typeDecl decl
+            | Declaration.Function decl -> functionDecl decl)
         |> String.concat "\n\n"
